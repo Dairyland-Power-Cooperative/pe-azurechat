@@ -12,4 +12,4 @@ You have access to the following functions:
 
 export const NEW_CHAT_NAME = "New chat";
 
-export const LOGO_URL = "https://dpcmemberstoai.blob.core.windows.net/membersvoltwriteassets/VoltWrite Cow Circle.png";
+export const LOGO_URL = "VoltWrite-Cow-Circle.png";

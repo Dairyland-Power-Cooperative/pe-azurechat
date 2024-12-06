@@ -22,7 +22,7 @@ export const ChatHome: FC<ChatPersonaProps> = (props) => {
           title={
             <>
               <Image
-                src={LOGO_URL}
+                src={"/VoltWrite-Cow-Circle.png"}
                 width={60}
                 height={60}
                 quality={100}
