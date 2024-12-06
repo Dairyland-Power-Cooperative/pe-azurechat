@@ -16,6 +16,7 @@ import {
   ChatThreadModel,
 } from "./chat-services/models";
 import MessageContent from "./message-content";
+import { LOGO_URL } from "@/features/theme/theme-config";
 
 interface ChatPageProps {
   messages: Array<ChatMessageModel>;
@@ -61,7 +62,7 @@ export const ChatPage: FC<ChatPageProps> = (props) => {
                 }}
                 profilePicture={
                   message.role === "assistant"
-                    ? "/ai-icon.png"
+                    ? LOGO_URL
                     : session?.user?.image
                 }
               >

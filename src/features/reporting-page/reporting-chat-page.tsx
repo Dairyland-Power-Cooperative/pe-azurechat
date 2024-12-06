@@ -8,6 +8,7 @@ import { ChatMessageArea } from "@/features/ui/chat/chat-message-area/chat-messa
 import ChatMessageContainer from "@/features/ui/chat/chat-message-area/chat-message-container";
 import ChatMessageContentArea from "@/features/ui/chat/chat-message-area/chat-message-content";
 import MessageContent from "../chat-page/message-content";
+import { LOGO_URL } from "@/features/theme/theme-config";
 
 interface ReportingChatPageProps {
   messages: Array<ChatMessageModel>;
@@ -29,7 +30,7 @@ export default function ReportingChatPage(props: ReportingChatPageProps) {
                   navigator.clipboard.writeText(message.content);
                 }}
                 profilePicture={
-                  message.role === "assistant" ? "/ai-icon.png" : undefined
+                  message.role === "assistant" ? LOGO_URL : undefined
                 }
               >
                 <MessageContent message={message} />
