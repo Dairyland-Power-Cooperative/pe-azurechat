@@ -1,8 +1,7 @@
 {
   "name": "Azure Chat Solution Accelerator powered by Azure Open AI Service",
   // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-  "image": "mcr.microsoft.com/devcontainers/javascript-node:0-18-bullseye",
-
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-18-bookworm",
   // Features to add to the dev container. More info: https://containers.dev/features.
   "features": {
     "ghcr.io/devcontainers/features/common-utils:2": {
@@ -32,7 +31,6 @@
     "ghcr.io/stuartleeks/dev-container-features/shell-history:0": {},
     "ghcr.io/azure/azure-dev/azd:0.1.0": {}
   },
-
   // Configure tool-specific properties.
   "customizations": {
     // Configure properties specific to VS Code.
@@ -40,13 +38,13 @@
       "settings": {
         "files.insertFinalNewline": true
       },
-      "extensions": ["shardulm94.trailing-spaces"]
+      "extensions": [
+        "shardulm94.trailing-spaces"
+      ]
     }
   }
-
   // Use 'forwardPorts' to make a list of ports inside the container available locally.
   // "forwardPorts": [3000],
-
   // Use 'portsAttributes' to set default properties for specific forwarded ports.
   // More info: https://containers.dev/implementors/json_reference/#port-attributes
   // "portsAttributes": {
@@ -55,10 +53,8 @@
   // 		"onAutoForward": "notify"
   // 	}
   // },
-
   // Use 'postCreateCommand' to run commands after the container is created.
   // "postCreateCommand": "yarn install"
-
   // Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
   // "remoteUser": "root"
 }
