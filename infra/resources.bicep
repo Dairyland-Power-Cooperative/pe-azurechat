@@ -31,12 +31,17 @@ param storageServiceImageContainerName string
 
 param location string = resourceGroup().location
 
-param disableLocalAuth bool = false
+param disableLocalAuth bool = true
+param usePrivateEndpoints bool = true
 
 @secure()
 param nextAuthHash string = uniqueString(newGuid())
 
 param tags object = {}
+
+param privateEndpointVNetPrefix string = '192.168.0.0/16'
+param privateEndpointSubnetAddressPrefix string = '192.168.0.0/24'
+param appServiceBackendSubnetAddressPrefix string = '192.168.1.0/24'
 
 var openai_name = toLower('${name}-aillm-${resourceToken}')
 var openai_dalle_name = toLower('${name}-aidalle-${resourceToken}')
@@ -51,9 +56,9 @@ var appservice_name = toLower('${name}-app-${resourceToken}')
 var clean_name = replace(replace(name, '-', ''), '_', '')
 var storage_prefix = take(clean_name, 8)
 var storage_name = toLower('${storage_prefix}sto${resourceToken}')
-// keyvault name must be less than 24 chars - token is 13
-var kv_prefix = take(name, 7)
-var keyVaultName = toLower('${kv_prefix}-kv-${resourceToken}')
+// keyvault name must be less than 24 chars - token is 13, 'kv' is 2
+var kv_prefix = take(clean_name, 7)
+var keyVaultName = toLower('${kv_prefix}kv${resourceToken}')
 var la_workspace_name = toLower('${name}-la-${resourceToken}')
 var diagnostic_setting_name = 'AppServiceConsoleLogs'
 
@@ -91,6 +96,26 @@ var llmDeployments = [
     capacity: embeddingDeploymentCapacity
   }
 ]
+
+module privateEndpoints 'private_endpoints_core.bicep' = if (usePrivateEndpoints) {
+  name: 'private-endpoints'
+  params: {
+    location: location
+    name: name
+    resourceToken: resourceToken
+    tags: tags
+    cosmos_id: cosmosDbAccount.id
+    openai_id: azureopenai.id
+    openai_dalle_id: azureopenaidalle.id
+    form_recognizer_id: formRecognizer.id
+    storage_id: storage.id
+    keyVault_id: kv.id
+    search_service_id: searchService.id
+    privateEndpointVNetPrefix: privateEndpointVNetPrefix
+    privateEndpointSubnetAddressPrefix: privateEndpointSubnetAddressPrefix
+    appServiceBackendSubnetAddressPrefix: appServiceBackendSubnetAddressPrefix
+  }
+}
 
 resource appServicePlan 'Microsoft.Web/serverfarms@2020-06-01' = {
   name: appservice_name
@@ -218,15 +243,17 @@ var appSettingsWithLocalAuth = disableLocalAuth
       }
     ]
 
-resource webApp 'Microsoft.Web/sites@2020-06-01' = {
+resource webApp 'Microsoft.Web/sites@2024-04-01' = {
   name: webapp_name
   location: location
   tags: union(tags, { 'azd-service-name': 'frontend' })
   properties: {
     serverFarmId: appServicePlan.id
     httpsOnly: true
+    virtualNetworkSubnetId: usePrivateEndpoints ? privateEndpoints.outputs.appServiceSubnetId : null
+    vnetRouteAllEnabled: usePrivateEndpoints ? false : null
     siteConfig: {
-      linuxFxVersion: 'node|18-lts'
+      linuxFxVersion: 'NODE|22-lts'
       alwaysOn: true
       appCommandLine: 'next start'
       ftpsState: 'Disabled'
@@ -277,7 +304,7 @@ resource kvFunctionAppPermissions 'Microsoft.Authorization/roleAssignments@2020-
   }
 }
 
-resource kv 'Microsoft.KeyVault/vaults@2021-06-01-preview' = {
+resource kv 'Microsoft.KeyVault/vaults@2024-12-01-preview' = {
   name: keyVaultName
   location: location
   properties: {
@@ -290,6 +317,10 @@ resource kv 'Microsoft.KeyVault/vaults@2021-06-01-preview' = {
     enabledForDeployment: false
     enabledForDiskEncryption: true
     enabledForTemplateDeployment: false
+    enableSoftDelete: true
+    softDeleteRetentionInDays: 90
+    enablePurgeProtection: true
+    publicNetworkAccess: usePrivateEndpoints ? 'Disabled' : 'Enabled'
   }
 
   resource AZURE_OPENAI_API_KEY 'secrets' = if (!disableLocalAuth) {
@@ -365,6 +396,7 @@ resource cosmosDbAccount 'Microsoft.DocumentDB/databaseAccounts@2023-04-15' = {
   properties: {
     databaseAccountOfferType: 'Standard'
     disableLocalAuth: disableLocalAuth
+    publicNetworkAccess: usePrivateEndpoints ? 'Disabled' : 'Enabled'
     locations: [
       {
         locationName: location
@@ -424,7 +456,7 @@ resource formRecognizer 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
   kind: 'FormRecognizer'
   properties: {
     customSubDomainName: form_recognizer_name
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: usePrivateEndpoints ? 'Disabled' : 'Enabled'
     disableLocalAuth: disableLocalAuth
   }
   sku: {
@@ -438,7 +470,7 @@ resource searchService 'Microsoft.Search/searchServices@2022-09-01' = {
   tags: tags
   properties: {
     partitionCount: 1
-    publicNetworkAccess: 'enabled'
+    publicNetworkAccess: usePrivateEndpoints ? 'disabled' : 'enabled'
     replicaCount: 1
     disableLocalAuth: disableLocalAuth
   }
@@ -454,7 +486,7 @@ resource azureopenai 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
   kind: 'OpenAI'
   properties: {
     customSubDomainName: openai_name
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: usePrivateEndpoints ? 'Disabled' : 'Enabled'
     disableLocalAuth: disableLocalAuth
   }
   sku: {
@@ -487,7 +519,7 @@ resource azureopenaidalle 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
   kind: 'OpenAI'
   properties: {
     customSubDomainName: openai_dalle_name
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: usePrivateEndpoints ? 'Disabled' : 'Enabled'
     disableLocalAuth: disableLocalAuth
   }
   sku: {
@@ -516,6 +548,7 @@ resource speechService 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
   kind: 'SpeechServices'
   properties: {
     customSubDomainName: speech_service_name
+    // called from the browser so public endpoint is required
     publicNetworkAccess: 'Enabled'
     /* TODO: disableLocalAuth: disableLocalAuth*/
   }
@@ -525,7 +558,7 @@ resource speechService 'Microsoft.CognitiveServices/accounts@2023-05-01' = {
 }
 
 // TODO: define good default Sku and settings for storage account
-resource storage 'Microsoft.Storage/storageAccounts@2022-05-01' = {
+resource storage 'Microsoft.Storage/storageAccounts@2024-01-01' = {
   name: storage_name
   location: location
   tags: tags
@@ -533,6 +566,8 @@ resource storage 'Microsoft.Storage/storageAccounts@2022-05-01' = {
   sku: storageServiceSku
   properties: {
     allowSharedKeyAccess: !disableLocalAuth
+    publicNetworkAccess: usePrivateEndpoints ? 'Disabled' : 'Enabled'
+    minimumTlsVersion: 'TLS1_2'
   }
 
   resource blobServices 'blobServices' = {
